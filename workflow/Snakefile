@@ -1,0 +1,63 @@
+configfile: "config/config.yaml"
+
+SAMPLES = config["samples"]
+
+rule all:
+    input:
+        "results/multiqc_report.html"
+
+rule fastqc:
+    input:
+        r1="results/trimmed/{sample}_1.trimmed.fastq.gz",
+        r2="results/trimmed/{sample}_2.trimmed.fastq.gz"
+    output:
+        "results/fastqc/{sample}_1.trimmed_fastqc.html",
+        "results/fastqc/{sample}_2.trimmed_fastqc.html"
+    log:
+        "logs/fastqc/{sample}.log"
+    threads: 2
+    shell:
+        """
+        mkdir -p results/fastqc logs/fastqc
+        fastqc {input.r1} {input.r2} -o results/fastqc > {log} 2>&1
+        """
+rule multiqc:
+    input:
+        expand("results/fastqc/{sample}_1.trimmed_fastqc.html", sample=SAMPLES),
+        expand("results/fastqc/{sample}_2.trimmed_fastqc.html", sample=SAMPLES)
+    output:
+        "results/multiqc_report.html"
+    log:
+        "logs/multiqc.log"
+    shell:
+        """
+        mkdir -p logs
+        multiqc results/fastqc -o results/ --force > {log} 2>&1
+        """
+rule fastp:
+    input:
+        r1="data/raw/{sample}_1.fastq.gz",
+        r2="data/raw/{sample}_2.fastq.gz"
+    output:
+        r1="results/trimmed/{sample}_1.trimmed.fastq.gz",
+        r2="results/trimmed/{sample}_2.trimmed.fastq.gz",
+        html="results/fastp/{sample}.html",
+        json="results/fastp/{sample}.json"
+    log:
+        "logs/fastp/{sample}.log"
+    threads: 2
+    shell:
+        """
+        mkdir -p results/trimmed results/fastp logs/fastp
+        fastp \
+          -i {input.r1} \
+          -I {input.r2} \
+          -o {output.r1} \
+          -O {output.r2} \
+          -h {output.html} \
+          -j {output.json} \
+          > {log} 2>&1
+        """
+    
+
+
